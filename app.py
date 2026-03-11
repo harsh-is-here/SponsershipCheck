@@ -6,7 +6,7 @@ from flask import (
     Flask, render_template, request, redirect, url_for,
     session, flash, jsonify, g
 )
-from hashlib import sha256
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24).hex())
@@ -84,7 +84,7 @@ def init_db():
     if not existing:
         db.execute(
             "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
-            ('admin', sha256('@MMMUTadmin123'.encode()).hexdigest(), 'admin')
+            ('admin', generate_password_hash('@MMMUTadmin123'), 'admin')
         )
     db.commit()
     db.close()
@@ -151,10 +151,10 @@ def login():
         password = request.form.get('password', '').strip()
         db = get_db()
         user = db.execute(
-            "SELECT * FROM users WHERE username=? AND password=?",
-            (username, sha256(password.encode()).hexdigest())
+            "SELECT * FROM users WHERE username=?",
+            (username,)
         ).fetchone()
-        if user:
+        if user and check_password_hash(user['password'], password):
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['role'] = user['role']
@@ -182,7 +182,7 @@ def register():
         try:
             db.execute(
                 "INSERT INTO users (username, password, role) VALUES (?, ?, 'member')",
-                (username, sha256(password.encode()).hexdigest())
+                (username, generate_password_hash(password))
             )
             db.commit()
             flash('Account created! Please log in.', 'success')
