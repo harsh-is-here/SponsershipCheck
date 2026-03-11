@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% block title %}My Dashboard - SponsorTrack{% endblock %}
+{% block content %}
+
+<!-- Welcome -->
+<div style="margin-bottom: 2rem;">
+    <h1 style="font-size: 1.5rem; font-weight: 700;">Welcome, {{ session.get('username') }}</h1>
+    <p style="color: var(--muted); font-size: 0.9rem;">Here are your assigned companies and email progress.</p>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-number">{{ stats.total_assigned }}</div>
+        <div class="stat-label">Assigned Companies</div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-number">{{ stats.emails_sent }}</div>
+        <div class="stat-label">Emails Sent</div>
+    </div>
+    <div class="stat-card red">
+        <div class="stat-number">{{ stats.pending }}</div>
+        <div class="stat-label">Pending (No email yet)</div>
+    </div>
+</div>
+
+<!-- Assigned Companies -->
+<div class="section-title">&#127919; Your Assigned Companies</div>
+
+{% if assignments %}
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 1rem;">
+    {% for a in assignments %}
+    <div class="card" style="position: relative;">
+        <!-- Status indicator -->
+        <div style="position: absolute; top: 1rem; right: 1rem;">
+            {% if a.emails_sent > 0 %}
+            <span class="badge badge-sent">{{ a.emails_sent }} email{{ 's' if a.emails_sent > 1 else '' }} sent</span>
+            {% else %}
+            <span class="badge badge-pending">No email sent</span>
+            {% endif %}
+        </div>
+
+        <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem; padding-right: 7rem;">{{ a.company_name }}</h3>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem 1rem; margin-bottom: 1rem; font-size: 0.83rem;">
+            <div>
+                <span style="color: var(--muted);">Industry:</span>
+                <span>{{ a.industry or 'N/A' }}</span>
+            </div>
+            <div>
+                <span style="color: var(--muted);">Email:</span>
+                <span>{{ a.company_email or 'N/A' }}</span>
+            </div>
+            <div>
+                <span style="color: var(--muted);">Website:</span>
+                <span>
+                    {% if a.website %}
+                    <a href="{{ a.website }}" target="_blank" rel="noopener" style="color: var(--accent);">{{ a.website[:30] }}{% if a.website|length > 30 %}...{% endif %}</a>
+                    {% else %}N/A{% endif %}
+                </span>
+            </div>
+            <div>
+                <span style="color: var(--muted);">Assigned by:</span>
+                <span>{{ a.assigned_by_name }}</span>
+            </div>
+            <div>
+                <span style="color: var(--muted);">Assigned:</span>
+                <span>{{ a.assigned_at[:10] }}</span>
+            </div>
+            {% if a.last_email_at %}
+            <div>
+                <span style="color: var(--muted);">Last email:</span>
+                <span>{{ a.last_email_at[:16] }}</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Mark email sent form -->
+        <div style="border-top: 1px solid var(--border); padding-top: 1rem;">
+            <form method="POST" action="{{ url_for('mark_email_sent', assignment_id=a.id) }}"
+                  style="display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 120px;">
+                    <label style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">Status</label>
+                    <select name="status" style="padding: 0.45rem 0.7rem; font-size: 0.82rem;">
+                        <option value="sent">Email Sent</option>
+                        <option value="replied">Got Reply</option>
+                        <option value="no_response">No Response</option>
+                    </select>
+                </div>
+                <div style="flex: 2; min-width: 150px;">
+                    <label style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">Notes (optional)</label>
+                    <input type="text" name="notes" placeholder="e.g. Followed up..."
+                           style="padding: 0.45rem 0.7rem; font-size: 0.82rem;">
+                </div>
+                <button type="submit" class="btn btn-success btn-sm" style="white-space: nowrap;">
+                    &#10003; Update Status
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card">
+    <div class="empty-state">
+        <div class="icon">&#128235;</div>
+        <p>No companies assigned to you yet.</p>
+        <p style="font-size: 0.8rem; margin-top: 0.3rem;">The admin will assign companies for you to reach out to.</p>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Keep session alive with periodic heartbeat
+setInterval(() => {
+    fetch('/api/stats').then(r => r.json());
+}, 30000);
+</script>
+{% endblock %}

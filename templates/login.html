@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Login - SponsorTrack{% endblock %}
+{% block content %}
+<div class="auth-wrapper" style="min-height: calc(100vh - 80px);">
+    <div class="auth-card">
+        <h1>&#9670; SponsorTrack</h1>
+        <p class="subtitle">Sign in to manage sponsorships</p>
+
+        <form method="POST">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" name="username" placeholder="Enter your username" required autofocus>
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" name="password" placeholder="Enter your password" required>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; padding: 0.7rem;">
+                Sign In
+            </button>
+        </form>
+
+        <div class="auth-divider">
+            Don't have an account? <a href="{{ url_for('register') }}">Create one</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
