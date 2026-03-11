@@ -9,7 +9,7 @@ from flask import (
 from hashlib import sha256
 
 app = Flask(__name__)
-app.secret_key = 'sponsorship-tracker-secret-key-2026'
+app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24).hex())
 DATABASE = os.path.join(os.path.dirname(__file__), 'sponsorship.db')
 
 # --------------- Database helpers ---------------
@@ -84,7 +84,7 @@ def init_db():
     if not existing:
         db.execute(
             "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
-            ('admin', sha256('admin123'.encode()).hexdigest(), 'admin')
+            ('admin', sha256('@MMMUTadmin123'.encode()).hexdigest(), 'admin')
         )
     db.commit()
     db.close()
