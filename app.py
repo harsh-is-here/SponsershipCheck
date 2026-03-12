@@ -481,7 +481,10 @@ def api_stats():
         })
 
 
-init_db()
+try:
+    init_db()
+except Exception as e:
+    print(f"WARNING: init_db failed: {e}")
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=10000, debug=False)
