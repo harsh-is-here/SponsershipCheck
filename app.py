@@ -1,13 +1,15 @@
 import os
 import sqlite3
+import base64
 from datetime import datetime, timedelta
 from functools import wraps
 from urllib.parse import urlparse
 from flask import (
     Flask, render_template, request, redirect, url_for,
-    session, flash, jsonify, g
+    session, flash, jsonify, g, send_file, Response
 )
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24).hex())
@@ -129,6 +131,16 @@ def init_db():
                 notes TEXT
             );
         """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS documents (
+                id SERIAL PRIMARY KEY,
+                filename TEXT NOT NULL,
+                mimetype TEXT NOT NULL,
+                data BYTEA NOT NULL,
+                uploaded_by INTEGER NOT NULL REFERENCES users(id),
+                uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
         cur.execute("SELECT id FROM users WHERE role='admin'")
         existing = cur.fetchone()
         if not existing:
@@ -186,6 +198,16 @@ def init_db():
                 FOREIGN KEY (assignment_id) REFERENCES assignments(id),
                 FOREIGN KEY (user_id) REFERENCES users(id),
                 FOREIGN KEY (company_id) REFERENCES companies(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS documents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                filename TEXT NOT NULL,
+                mimetype TEXT NOT NULL,
+                data BLOB NOT NULL,
+                uploaded_by INTEGER NOT NULL,
+                uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (uploaded_by) REFERENCES users(id)
             );
         """)
         existing = db.execute("SELECT id FROM users WHERE role='admin'").fetchone()
@@ -342,6 +364,12 @@ def dashboard():
             JOIN companies c ON el.company_id = c.id
             ORDER BY el.sent_at DESC
         """)
+        documents = db_fetchall(db, """
+            SELECT d.id, d.filename, d.mimetype, d.uploaded_at, u.username as uploaded_by_name
+            FROM documents d
+            JOIN users u ON d.uploaded_by = u.id
+            ORDER BY d.uploaded_at DESC
+        """)
         stats = {
             'total_members': list(db_fetchone(db, "SELECT COUNT(*) as cnt FROM users WHERE role='member'").values())[0],
             'online_members': list(db_fetchone(db, "SELECT COUNT(*) as cnt FROM users WHERE role='member' AND is_online=1").values())[0],
@@ -351,7 +379,7 @@ def dashboard():
         }
         return render_template('admin_dashboard.html', members=members,
                                companies=companies, assignments=all_assignments,
-                               email_logs=email_logs, stats=stats)
+                               email_logs=email_logs, documents=documents, stats=stats)
     else:
         # Member sees their own assignments
         assignments = db_fetchall(db, """
@@ -366,6 +394,12 @@ def dashboard():
             WHERE a.user_id = ?
             ORDER BY a.assigned_at DESC
         """, (user_id,))
+        # Available companies = not assigned to anyone
+        available_companies = db_fetchall(db, """
+            SELECT c.* FROM companies c
+            WHERE c.id NOT IN (SELECT company_id FROM assignments)
+            ORDER BY c.name
+        """)
         email_logs = db_fetchall(db, """
             SELECT el.*, c.name as company_name, c.email as company_email
             FROM email_logs el
@@ -373,6 +407,12 @@ def dashboard():
             WHERE el.user_id = ?
             ORDER BY el.sent_at DESC
         """, (user_id,))
+        documents = db_fetchall(db, """
+            SELECT d.id, d.filename, d.mimetype, d.uploaded_at, u.username as uploaded_by_name
+            FROM documents d
+            JOIN users u ON d.uploaded_by = u.id
+            ORDER BY d.uploaded_at DESC
+        """)
         stats = {
             'total_assigned': len(assignments),
             'emails_sent': list(db_fetchone(db,
@@ -381,13 +421,14 @@ def dashboard():
             'pending': sum(1 for a in assignments if a['emails_sent'] == 0),
         }
         return render_template('member_dashboard.html', assignments=assignments,
-                               email_logs=email_logs, stats=stats)
+                               available_companies=available_companies,
+                               email_logs=email_logs, documents=documents, stats=stats)
 
 
-# --------------- Company CRUD (Admin) ---------------
+# --------------- Company CRUD (Members add, Admin deletes) ---------------
 
 @app.route('/companies/add', methods=['POST'])
-@admin_required
+@login_required
 def add_company():
     name = request.form.get('name', '').strip()
     email = request.form.get('email', '').strip()
@@ -398,12 +439,48 @@ def add_company():
         flash('Company name is required.', 'danger')
         return redirect(url_for('dashboard'))
     db = get_db()
+    # Check if company already exists
+    existing = db_fetchone(db, "SELECT id FROM companies WHERE LOWER(name)=LOWER(?)", (name,))
+    if existing:
+        flash(f'Company "{name}" already exists.', 'warning')
+        return redirect(url_for('dashboard'))
     db_execute(db,
         "INSERT INTO companies (name, email, industry, website, notes) VALUES (?,?,?,?,?)",
         (name, email, industry, website, notes)
     )
+    # Get the new company id
+    new_company = db_fetchone(db, "SELECT id FROM companies WHERE LOWER(name)=LOWER(?)", (name,))
+    # Auto-assign to the member who added it
+    if session['role'] == 'member':
+        db_execute(db,
+            "INSERT INTO assignments (user_id, company_id, assigned_by) VALUES (?,?,?)",
+            (session['user_id'], new_company['id'], session['user_id'])
+        )
     db.commit()
-    flash(f'Company "{name}" added!', 'success')
+    flash(f'Company "{name}" added and assigned to you!', 'success')
+    return redirect(url_for('dashboard'))
+
+
+@app.route('/companies/select/<int:company_id>', methods=['POST'])
+@login_required
+def select_company(company_id):
+    """Member selects an available (unassigned) company."""
+    db = get_db()
+    # Check company exists and is not already assigned
+    company = db_fetchone(db, "SELECT * FROM companies WHERE id=?", (company_id,))
+    if not company:
+        flash('Company not found.', 'danger')
+        return redirect(url_for('dashboard'))
+    already_assigned = db_fetchone(db, "SELECT id FROM assignments WHERE company_id=?", (company_id,))
+    if already_assigned:
+        flash('This company is already taken by another user.', 'warning')
+        return redirect(url_for('dashboard'))
+    db_execute(db,
+        "INSERT INTO assignments (user_id, company_id, assigned_by) VALUES (?,?,?)",
+        (session['user_id'], company_id, session['user_id'])
+    )
+    db.commit()
+    flash(f'Company "{company["name"]}" assigned to you!', 'success')
     return redirect(url_for('dashboard'))
 
 
@@ -419,29 +496,7 @@ def delete_company(company_id):
     return redirect(url_for('dashboard'))
 
 
-# --------------- Assignments (Admin) ---------------
-
-@app.route('/assign', methods=['POST'])
-@admin_required
-def assign_company():
-    user_id = request.form.get('user_id', type=int)
-    company_id = request.form.get('company_id', type=int)
-    if not user_id or not company_id:
-        flash('Select both a member and a company.', 'danger')
-        return redirect(url_for('dashboard'))
-    db = get_db()
-    try:
-        db_execute(db,
-            "INSERT INTO assignments (user_id, company_id, assigned_by) VALUES (?,?,?)",
-            (user_id, company_id, session['user_id'])
-        )
-        db.commit()
-        flash('Company assigned successfully!', 'success')
-    except (sqlite3.IntegrityError, Exception) as e:
-        db.rollback()
-        flash('This company is already assigned to that member.', 'warning')
-    return redirect(url_for('dashboard'))
-
+# --------------- Assignments (Admin can unassign) ---------------
 
 @app.route('/unassign/<int:assignment_id>', methods=['POST'])
 @admin_required
@@ -451,6 +506,84 @@ def unassign_company(assignment_id):
     db_execute(db, "DELETE FROM assignments WHERE id=?", (assignment_id,))
     db.commit()
     flash('Assignment removed.', 'info')
+    return redirect(url_for('dashboard'))
+
+
+# --------------- User Management (Admin) ---------------
+
+@app.route('/delete-user/<int:user_id>', methods=['POST'])
+@admin_required
+def delete_user(user_id):
+    db = get_db()
+    user = db_fetchone(db, "SELECT * FROM users WHERE id=? AND role='member'", (user_id,))
+    if not user:
+        flash('Member not found.', 'danger')
+        return redirect(url_for('dashboard'))
+    # Delete user's email logs, assignments, then the user
+    db_execute(db, "DELETE FROM email_logs WHERE user_id=?", (user_id,))
+    db_execute(db, "DELETE FROM assignments WHERE user_id=?", (user_id,))
+    db_execute(db, "DELETE FROM users WHERE id=?", (user_id,))
+    db.commit()
+    flash(f'User "{user["username"]}" deleted.', 'info')
+    return redirect(url_for('dashboard'))
+
+
+# --------------- Document Management (Admin uploads, all view) ---------------
+
+ALLOWED_EXTENSIONS = {'pdf', 'xlsx', 'xls', 'csv'}
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+@app.route('/documents/upload', methods=['POST'])
+@admin_required
+def upload_document():
+    if 'file' not in request.files:
+        flash('No file selected.', 'danger')
+        return redirect(url_for('dashboard'))
+    file = request.files['file']
+    if file.filename == '':
+        flash('No file selected.', 'danger')
+        return redirect(url_for('dashboard'))
+    filename = secure_filename(file.filename)
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+    if ext not in ALLOWED_EXTENSIONS:
+        flash('Only PDF, Excel (.xlsx, .xls), and CSV files are allowed.', 'danger')
+        return redirect(url_for('dashboard'))
+    data = file.read()
+    if len(data) > MAX_FILE_SIZE:
+        flash('File too large. Maximum 10 MB.', 'danger')
+        return redirect(url_for('dashboard'))
+    db = get_db()
+    db_execute(db,
+        "INSERT INTO documents (filename, mimetype, data, uploaded_by) VALUES (?,?,?,?)",
+        (filename, file.content_type, data, session['user_id'])
+    )
+    db.commit()
+    flash(f'Document "{filename}" uploaded!', 'success')
+    return redirect(url_for('dashboard'))
+
+
+@app.route('/documents/download/<int:doc_id>')
+@login_required
+def download_document(doc_id):
+    db = get_db()
+    doc = db_fetchone(db, "SELECT * FROM documents WHERE id=?", (doc_id,))
+    if not doc:
+        flash('Document not found.', 'danger')
+        return redirect(url_for('dashboard'))
+    return Response(
+        doc['data'],
+        mimetype=doc['mimetype'],
+        headers={'Content-Disposition': f'attachment; filename="{doc["filename"]}"'}
+    )
+
+
+@app.route('/documents/delete/<int:doc_id>', methods=['POST'])
+@admin_required
+def delete_document(doc_id):
+    db = get_db()
+    db_execute(db, "DELETE FROM documents WHERE id=?", (doc_id,))
+    db.commit()
+    flash('Document deleted.', 'info')
     return redirect(url_for('dashboard'))
 
 

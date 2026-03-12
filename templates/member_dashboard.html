@@ -5,18 +5,18 @@
 <!-- Welcome -->
 <div style="margin-bottom: 2rem;">
     <h1 style="font-size: 1.5rem; font-weight: 700;">Welcome, {{ session.get('username') }}</h1>
-    <p style="color: var(--muted); font-size: 0.9rem;">Here are your assigned companies and email progress.</p>
+    <p style="color: var(--muted); font-size: 0.9rem;">Manage your companies, track emails, and view shared documents.</p>
 </div>
 
 <!-- Stats -->
 <div class="stats-grid">
     <div class="stat-card">
         <div class="stat-number">{{ stats.total_assigned }}</div>
-        <div class="stat-label">Assigned Companies</div>
+        <div class="stat-label">My Companies</div>
     </div>
     <div class="stat-card green">
         <div class="stat-number">{{ stats.emails_sent }}</div>
-        <div class="stat-label">Emails Sent</div>
+        <div class="stat-label">Emails Logged</div>
     </div>
     <div class="stat-card red">
         <div class="stat-number">{{ stats.pending }}</div>
@@ -24,94 +24,220 @@
     </div>
 </div>
 
-<!-- Assigned Companies -->
-<div class="section-title">&#127919; Your Assigned Companies</div>
-
-{% if assignments %}
-<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 1rem;">
-    {% for a in assignments %}
-    <div class="card" style="position: relative;">
-        <!-- Status indicator -->
-        <div style="position: absolute; top: 1rem; right: 1rem;">
-            {% if a.emails_sent > 0 %}
-            <span class="badge badge-sent">{{ a.emails_sent }} email{{ 's' if a.emails_sent > 1 else '' }} sent</span>
-            {% else %}
-            <span class="badge badge-pending">No email sent</span>
-            {% endif %}
-        </div>
-
-        <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem; padding-right: 7rem;">{{ a.company_name }}</h3>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem 1rem; margin-bottom: 1rem; font-size: 0.83rem;">
-            <div>
-                <span style="color: var(--muted);">Industry:</span>
-                <span>{{ a.industry or 'N/A' }}</span>
+<div class="grid-2">
+    <!-- Left: Add New Company -->
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <h3>&#127970; Add New Company</h3>
             </div>
-            <div>
-                <span style="color: var(--muted);">Email:</span>
-                <span>{{ a.company_email or 'N/A' }}</span>
-            </div>
-            <div>
-                <span style="color: var(--muted);">Website:</span>
-                <span>
-                    {% if a.website %}
-                    <a href="{{ a.website }}" target="_blank" rel="noopener" style="color: var(--accent);">{{ a.website[:30] }}{% if a.website|length > 30 %}...{% endif %}</a>
-                    {% else %}N/A{% endif %}
-                </span>
-            </div>
-            <div>
-                <span style="color: var(--muted);">Assigned by:</span>
-                <span>{{ a.assigned_by_name }}</span>
-            </div>
-            <div>
-                <span style="color: var(--muted);">Assigned:</span>
-                <span>{{ a.assigned_at|datefmt('%Y-%m-%d') }}</span>
-            </div>
-            {% if a.last_email_at %}
-            <div>
-                <span style="color: var(--muted);">Last email:</span>
-                <span>{{ a.last_email_at|datefmt }}</span>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- Mark email sent form -->
-        <div style="border-top: 1px solid var(--border); padding-top: 1rem;">
-            <form method="POST" action="{{ url_for('mark_email_sent', assignment_id=a.id) }}"
-                  style="display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 140px;">
-                    <label style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">Status</label>
-                    <select name="status" style="padding: 0.45rem 0.7rem; font-size: 0.82rem;">
-                        <option value="sent">Email Sent</option>
-                        <option value="replied">Got Reply</option>
-                        <option value="no_response">No Response</option>
-                        <option value="not_sent">Not Sent</option>
-                        <option value="bounced">Bounced</option>
-                        <option value="rejected">Rejected</option>
-                    </select>
+            <form method="POST" action="{{ url_for('add_company') }}">
+                <div class="form-group">
+                    <label>Company Name *</label>
+                    <input type="text" name="name" placeholder="e.g. Google" required>
                 </div>
-                <div style="flex: 2; min-width: 150px;">
-                    <label style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">Reason / Notes</label>
-                    <input type="text" name="notes" placeholder="e.g. Invalid email, Followed up..."
-                           style="padding: 0.45rem 0.7rem; font-size: 0.82rem;">
+                <div class="grid-2" style="gap: 0.8rem;">
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" name="email" placeholder="sponsor@company.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Industry</label>
+                        <input type="text" name="industry" placeholder="e.g. Technology">
+                    </div>
                 </div>
-                <button type="submit" class="btn btn-success btn-sm" style="white-space: nowrap;">
-                    &#10003; Update Status
-                </button>
+                <div class="form-group">
+                    <label>Website</label>
+                    <input type="url" name="website" placeholder="https://company.com">
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea name="notes" placeholder="Any additional info..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-success">Add &amp; Assign to Me</button>
             </form>
         </div>
     </div>
-    {% endfor %}
-</div>
-{% else %}
-<div class="card">
-    <div class="empty-state">
-        <div class="icon">&#128235;</div>
-        <p>No companies assigned to you yet.</p>
-        <p style="font-size: 0.8rem; margin-top: 0.3rem;">The admin will assign companies for you to reach out to.</p>
+
+    <!-- Right: Available Companies to Select -->
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <h3>&#127919; Available Companies</h3>
+                <span class="badge badge-sent">{{ available_companies|length }} available</span>
+            </div>
+            {% if available_companies %}
+            <p style="color: var(--muted); font-size: 0.82rem; margin-bottom: 1rem;">
+                These companies are not yet assigned to anyone. Select one to work on it.
+            </p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Industry</th>
+                            <th>Email</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in available_companies %}
+                        <tr>
+                            <td><strong>{{ c.name }}</strong></td>
+                            <td style="color: var(--muted);">{{ c.industry or '-' }}</td>
+                            <td style="color: var(--muted); font-size: 0.8rem;">{{ c.email or '-' }}</td>
+                            <td>
+                                <form method="POST" action="{{ url_for('select_company', company_id=c.id) }}"
+                                      onsubmit="return confirm('Select {{ c.name }}? It will be assigned to you.');"
+                                      style="display:inline;">
+                                    <button type="submit" class="btn btn-primary btn-sm">Select</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="icon">&#9989;</div>
+                <p>All companies are assigned. Add a new one using the form.</p>
+            </div>
+            {% endif %}
+        </div>
     </div>
 </div>
-{% endif %}
+
+<!-- My Assigned Companies -->
+<div style="margin-top: 1.5rem;">
+    <div class="section-title">&#128188; My Assigned Companies</div>
+
+    {% if assignments %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 1rem;">
+        {% for a in assignments %}
+        <div class="card" style="position: relative;">
+            <!-- Status indicator -->
+            <div style="position: absolute; top: 1rem; right: 1rem;">
+                {% if a.emails_sent > 0 %}
+                <span class="badge badge-sent">{{ a.emails_sent }} email{{ 's' if a.emails_sent > 1 else '' }} logged</span>
+                {% else %}
+                <span class="badge badge-pending">No email sent</span>
+                {% endif %}
+            </div>
+
+            <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem; padding-right: 7rem;">{{ a.company_name }}</h3>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem 1rem; margin-bottom: 1rem; font-size: 0.83rem;">
+                <div>
+                    <span style="color: var(--muted);">Industry:</span>
+                    <span>{{ a.industry or 'N/A' }}</span>
+                </div>
+                <div>
+                    <span style="color: var(--muted);">Email:</span>
+                    <span>{{ a.company_email or 'N/A' }}</span>
+                </div>
+                <div>
+                    <span style="color: var(--muted);">Website:</span>
+                    <span>
+                        {% if a.website %}
+                        <a href="{{ a.website }}" target="_blank" rel="noopener" style="color: var(--accent);">{{ a.website[:30] }}{% if a.website|length > 30 %}...{% endif %}</a>
+                        {% else %}N/A{% endif %}
+                    </span>
+                </div>
+                <div>
+                    <span style="color: var(--muted);">Assigned:</span>
+                    <span>{{ a.assigned_at|datefmt('%Y-%m-%d') }}</span>
+                </div>
+                {% if a.last_email_at %}
+                <div>
+                    <span style="color: var(--muted);">Last email:</span>
+                    <span>{{ a.last_email_at|datefmt }}</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Mark email sent form -->
+            <div style="border-top: 1px solid var(--border); padding-top: 1rem;">
+                <form method="POST" action="{{ url_for('mark_email_sent', assignment_id=a.id) }}"
+                      style="display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 140px;">
+                        <label style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">Status</label>
+                        <select name="status" style="padding: 0.45rem 0.7rem; font-size: 0.82rem;">
+                            <option value="sent">Email Sent</option>
+                            <option value="replied">Got Reply</option>
+                            <option value="no_response">No Response</option>
+                            <option value="not_sent">Not Sent</option>
+                            <option value="bounced">Bounced</option>
+                            <option value="rejected">Rejected</option>
+                        </select>
+                    </div>
+                    <div style="flex: 2; min-width: 150px;">
+                        <label style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">Reason / Notes</label>
+                        <input type="text" name="notes" placeholder="e.g. Invalid email, Followed up..."
+                               style="padding: 0.45rem 0.7rem; font-size: 0.82rem;">
+                    </div>
+                    <button type="submit" class="btn btn-success btn-sm" style="white-space: nowrap;">
+                        &#10003; Update Status
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="empty-state">
+            <div class="icon">&#128235;</div>
+            <p>No companies assigned to you yet.</p>
+            <p style="font-size: 0.8rem; margin-top: 0.3rem;">Add a new company above or select an available one.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Shared Documents -->
+<div style="margin-top: 2rem;">
+    <div class="section-title">&#128196; Shared Documents</div>
+    <div class="card">
+        <div class="card-header">
+            <h3>Documents from Admin</h3>
+            <span class="badge badge-sent">{{ documents|length }} files</span>
+        </div>
+        {% if documents %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Filename</th>
+                        <th>Uploaded By</th>
+                        <th>Date</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in documents %}
+                    <tr>
+                        <td><strong>{{ doc.filename }}</strong></td>
+                        <td style="color: var(--muted);">{{ doc.uploaded_by_name }}</td>
+                        <td style="color: var(--muted); font-size: 0.8rem;">{{ doc.uploaded_at|datefmt }}</td>
+                        <td>
+                            <a href="{{ url_for('download_document', doc_id=doc.id) }}" class="btn btn-primary btn-sm">
+                                &#11015; Download
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="icon">&#128196;</div>
+            <p>No documents shared yet. The admin will upload company lists and other files here.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
 
 <!-- Email Activity Log -->
 <div style="margin-top: 2rem;">
@@ -175,7 +301,6 @@
 
 {% block scripts %}
 <script>
-// Keep session alive with periodic heartbeat
 setInterval(() => {
     fetch('/api/stats').then(r => r.json());
 }, 30000);

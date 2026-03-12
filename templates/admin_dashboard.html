@@ -22,17 +22,16 @@
     </div>
     <div class="stat-card red">
         <div class="stat-number" id="stat-emails">{{ stats.total_emails_sent }}</div>
-        <div class="stat-label">Emails Sent</div>
+        <div class="stat-label">Emails Logged</div>
     </div>
 </div>
 
 <div class="grid-2">
-    <!-- Left: Online Members + Assign -->
+    <!-- Left: Team Members (with delete) -->
     <div>
-        <!-- Online Members -->
         <div class="card" style="margin-bottom: 1.5rem;">
             <div class="card-header">
-                <h3>&#128994; Team Members</h3>
+                <h3>&#128101; Team Members</h3>
                 <span class="badge badge-sent">{{ stats.online_members }} online</span>
             </div>
             <div class="table-wrap" id="members-table">
@@ -43,6 +42,7 @@
                             <th>Status</th>
                             <th>Username</th>
                             <th>Last Active</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -55,6 +55,13 @@
                             <td><strong>{{ m.username }}</strong></td>
                             <td style="color: var(--muted); font-size: 0.8rem;">
                                 {{ m.last_active|datefmt if m.last_active else 'Never' }}
+                            </td>
+                            <td>
+                                <form method="POST" action="{{ url_for('delete_user', user_id=m.id) }}"
+                                      onsubmit="return confirm('Delete user {{ m.username }}? This will remove all their assignments and email logs.');"
+                                      style="display:inline;">
+                                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                </form>
                             </td>
                         </tr>
                         {% endfor %}
@@ -69,80 +76,72 @@
             </div>
         </div>
 
-        <!-- Assign Company to Member -->
+        <!-- Upload Documents -->
         <div class="card">
             <div class="card-header">
-                <h3>&#127919; Assign Company</h3>
+                <h3>&#128196; Upload Document</h3>
             </div>
-            {% if members and companies %}
-            <form method="POST" action="{{ url_for('assign_company') }}">
+            <form method="POST" action="{{ url_for('upload_document') }}" enctype="multipart/form-data">
                 <div class="form-group">
-                    <label>Select Member</label>
-                    <select name="user_id" required>
-                        <option value="">-- Choose a member --</option>
-                        {% for m in members %}
-                        <option value="{{ m.id }}">
-                            {{ m.username }} {{ '(Online)' if m.is_online else '' }}
-                        </option>
-                        {% endfor %}
-                    </select>
+                    <label>Select File (PDF, Excel, CSV — max 10 MB)</label>
+                    <input type="file" name="file" accept=".pdf,.xlsx,.xls,.csv" required
+                           style="padding: 0.5rem; border: 1px dashed var(--border); border-radius: 8px; width: 100%;">
                 </div>
-                <div class="form-group">
-                    <label>Select Company</label>
-                    <select name="company_id" required>
-                        <option value="">-- Choose a company --</option>
-                        {% for c in companies %}
-                        <option value="{{ c.id }}">{{ c.name }} {% if c.industry %}({{ c.industry }}){% endif %}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <button type="submit" class="btn btn-primary">Assign Company</button>
+                <button type="submit" class="btn btn-primary">Upload Document</button>
             </form>
-            {% else %}
-            <div class="empty-state">
-                <p>Add companies and wait for members to register before assigning.</p>
-            </div>
-            {% endif %}
         </div>
     </div>
 
-    <!-- Right: Add Company -->
+    <!-- Right: Shared Documents + Companies List -->
     <div>
+        <!-- Shared Documents -->
         <div class="card" style="margin-bottom: 1.5rem;">
             <div class="card-header">
-                <h3>&#127970; Add Company</h3>
+                <h3>&#128202; Shared Documents</h3>
+                <span class="badge badge-sent">{{ documents|length }} files</span>
             </div>
-            <form method="POST" action="{{ url_for('add_company') }}">
-                <div class="form-group">
-                    <label>Company Name *</label>
-                    <input type="text" name="name" placeholder="e.g. Google" required>
-                </div>
-                <div class="grid-2" style="gap: 0.8rem;">
-                    <div class="form-group">
-                        <label>Email</label>
-                        <input type="email" name="email" placeholder="sponsor@company.com">
-                    </div>
-                    <div class="form-group">
-                        <label>Industry</label>
-                        <input type="text" name="industry" placeholder="e.g. Technology">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Website</label>
-                    <input type="url" name="website" placeholder="https://company.com">
-                </div>
-                <div class="form-group">
-                    <label>Notes</label>
-                    <textarea name="notes" placeholder="Any additional info..."></textarea>
-                </div>
-                <button type="submit" class="btn btn-success">Add Company</button>
-            </form>
+            {% if documents %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Filename</th>
+                            <th>Uploaded</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doc in documents %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('download_document', doc_id=doc.id) }}" style="color: var(--accent);">
+                                    {{ doc.filename }}
+                                </a>
+                            </td>
+                            <td style="color: var(--muted); font-size: 0.8rem;">{{ doc.uploaded_at|datefmt }}</td>
+                            <td>
+                                <form method="POST" action="{{ url_for('delete_document', doc_id=doc.id) }}"
+                                      onsubmit="return confirm('Delete this document?');" style="display:inline;">
+                                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="icon">&#128196;</div>
+                <p>No documents uploaded yet</p>
+            </div>
+            {% endif %}
         </div>
 
         <!-- Companies List -->
         <div class="card">
             <div class="card-header">
-                <h3>&#128218; All Companies ({{ companies|length }})</h3>
+                <h3>&#127970; All Companies ({{ companies|length }})</h3>
             </div>
             {% if companies %}
             <div class="table-wrap">
@@ -175,18 +174,18 @@
             {% else %}
             <div class="empty-state">
                 <div class="icon">&#127970;</div>
-                <p>No companies added yet</p>
+                <p>No companies added yet. Members can add companies.</p>
             </div>
             {% endif %}
         </div>
     </div>
 </div>
 
-<!-- All Assignments -->
+<!-- All Assignments (who works on what) -->
 <div style="margin-top: 1.5rem;">
     <div class="card">
         <div class="card-header">
-            <h3>&#128203; All Assignments</h3>
+            <h3>&#128203; Member Assignments — Who Works on What</h3>
             <span class="badge badge-sent">{{ assignments|length }} total</span>
         </div>
         {% if assignments %}
@@ -197,9 +196,9 @@
                         <th>Member</th>
                         <th>Company</th>
                         <th>Industry</th>
-                        <th>Assigned By</th>
+                        <th>Email</th>
                         <th>Assigned At</th>
-                        <th>Emails Sent</th>
+                        <th>Emails Logged</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -209,11 +208,11 @@
                         <td><strong>{{ a.username }}</strong></td>
                         <td>{{ a.company_name }}</td>
                         <td style="color: var(--muted);">{{ a.industry or '-' }}</td>
-                        <td style="color: var(--muted);">{{ a.assigned_by_name }}</td>
+                        <td style="color: var(--muted); font-size: 0.8rem;">{{ a.company_email or '-' }}</td>
                         <td style="color: var(--muted); font-size: 0.8rem;">{{ a.assigned_at|datefmt }}</td>
                         <td>
                             {% if a.emails_sent > 0 %}
-                            <span class="badge badge-sent">{{ a.emails_sent }} sent</span>
+                            <span class="badge badge-sent">{{ a.emails_sent }} logged</span>
                             {% else %}
                             <span class="badge badge-pending">Pending</span>
                             {% endif %}
@@ -232,7 +231,7 @@
         {% else %}
         <div class="empty-state">
             <div class="icon">&#128203;</div>
-            <p>No assignments yet. Assign companies to members above.</p>
+            <p>No assignments yet. Members will add and select companies themselves.</p>
         </div>
         {% endif %}
     </div>
@@ -252,6 +251,7 @@
                     <tr>
                         <th>Member</th>
                         <th>Company</th>
+                        <th>Company Email</th>
                         <th>Status</th>
                         <th>Reason / Notes</th>
                         <th>Date</th>
@@ -262,6 +262,7 @@
                     <tr>
                         <td><strong>{{ log.username }}</strong></td>
                         <td>{{ log.company_name }}</td>
+                        <td style="color: var(--muted); font-size: 0.8rem;">{{ log.company_email or '-' }}</td>
                         <td>
                             {% if log.status == 'sent' %}
                             <span class="badge badge-sent">Sent</span>
@@ -299,7 +300,6 @@
 
 {% block scripts %}
 <script>
-// Refresh online status every 15 seconds
 setInterval(() => {
     fetch('/api/online-users')
         .then(r => r.json())
