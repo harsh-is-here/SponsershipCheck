@@ -79,17 +79,20 @@
         <div style="border-top: 1px solid var(--border); padding-top: 1rem;">
             <form method="POST" action="{{ url_for('mark_email_sent', assignment_id=a.id) }}"
                   style="display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 120px;">
+                <div style="flex: 1; min-width: 140px;">
                     <label style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">Status</label>
                     <select name="status" style="padding: 0.45rem 0.7rem; font-size: 0.82rem;">
                         <option value="sent">Email Sent</option>
                         <option value="replied">Got Reply</option>
                         <option value="no_response">No Response</option>
+                        <option value="not_sent">Not Sent</option>
+                        <option value="bounced">Bounced</option>
+                        <option value="rejected">Rejected</option>
                     </select>
                 </div>
                 <div style="flex: 2; min-width: 150px;">
-                    <label style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">Notes (optional)</label>
-                    <input type="text" name="notes" placeholder="e.g. Followed up..."
+                    <label style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">Reason / Notes</label>
+                    <input type="text" name="notes" placeholder="e.g. Invalid email, Followed up..."
                            style="padding: 0.45rem 0.7rem; font-size: 0.82rem;">
                 </div>
                 <button type="submit" class="btn btn-success btn-sm" style="white-space: nowrap;">
@@ -109,6 +112,64 @@
     </div>
 </div>
 {% endif %}
+
+<!-- Email Activity Log -->
+<div style="margin-top: 2rem;">
+    <div class="section-title">&#128232; Your Email Activity Log</div>
+    {% if email_logs %}
+    <div class="card">
+        <div class="card-header">
+            <h3>All Updates</h3>
+            <span class="badge badge-sent">{{ email_logs|length }} entries</span>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Company</th>
+                        <th>Status</th>
+                        <th>Reason / Notes</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in email_logs %}
+                    <tr>
+                        <td><strong>{{ log.company_name }}</strong></td>
+                        <td>
+                            {% if log.status == 'sent' %}
+                            <span class="badge badge-sent">Sent</span>
+                            {% elif log.status == 'replied' %}
+                            <span class="badge badge-replied">Replied</span>
+                            {% elif log.status == 'no_response' %}
+                            <span class="badge badge-pending">No Response</span>
+                            {% elif log.status == 'not_sent' %}
+                            <span class="badge" style="background: rgba(252, 92, 101, 0.15); color: var(--danger);">Not Sent</span>
+                            {% elif log.status == 'bounced' %}
+                            <span class="badge" style="background: rgba(252, 92, 101, 0.15); color: var(--danger);">Bounced</span>
+                            {% elif log.status == 'rejected' %}
+                            <span class="badge" style="background: rgba(252, 92, 101, 0.15); color: var(--danger);">Rejected</span>
+                            {% else %}
+                            <span class="badge badge-pending">{{ log.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td style="color: var(--muted); font-size: 0.83rem;">{{ log.notes or '-' }}</td>
+                        <td style="color: var(--muted); font-size: 0.8rem;">{{ log.sent_at|datefmt }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="empty-state">
+            <div class="icon">&#128232;</div>
+            <p>No email activity logged yet. Update the status on your assigned companies above.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
 
 {% endblock %}
 

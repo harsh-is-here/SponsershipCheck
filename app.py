@@ -335,6 +335,13 @@ def dashboard():
             JOIN users assigner ON a.assigned_by = assigner.id
             ORDER BY a.assigned_at DESC
         """)
+        email_logs = db_fetchall(db, """
+            SELECT el.*, u.username, c.name as company_name, c.email as company_email
+            FROM email_logs el
+            JOIN users u ON el.user_id = u.id
+            JOIN companies c ON el.company_id = c.id
+            ORDER BY el.sent_at DESC
+        """)
         stats = {
             'total_members': list(db_fetchone(db, "SELECT COUNT(*) as cnt FROM users WHERE role='member'").values())[0],
             'online_members': list(db_fetchone(db, "SELECT COUNT(*) as cnt FROM users WHERE role='member' AND is_online=1").values())[0],
@@ -343,7 +350,8 @@ def dashboard():
             'total_emails_sent': list(db_fetchone(db, "SELECT COUNT(*) as cnt FROM email_logs").values())[0],
         }
         return render_template('admin_dashboard.html', members=members,
-                               companies=companies, assignments=all_assignments, stats=stats)
+                               companies=companies, assignments=all_assignments,
+                               email_logs=email_logs, stats=stats)
     else:
         # Member sees their own assignments
         assignments = db_fetchall(db, """
@@ -358,6 +366,13 @@ def dashboard():
             WHERE a.user_id = ?
             ORDER BY a.assigned_at DESC
         """, (user_id,))
+        email_logs = db_fetchall(db, """
+            SELECT el.*, c.name as company_name, c.email as company_email
+            FROM email_logs el
+            JOIN companies c ON el.company_id = c.id
+            WHERE el.user_id = ?
+            ORDER BY el.sent_at DESC
+        """, (user_id,))
         stats = {
             'total_assigned': len(assignments),
             'emails_sent': list(db_fetchone(db,
@@ -365,7 +380,8 @@ def dashboard():
             ).values())[0],
             'pending': sum(1 for a in assignments if a['emails_sent'] == 0),
         }
-        return render_template('member_dashboard.html', assignments=assignments, stats=stats)
+        return render_template('member_dashboard.html', assignments=assignments,
+                               email_logs=email_logs, stats=stats)
 
 
 # --------------- Company CRUD (Admin) ---------------

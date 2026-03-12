@@ -238,6 +238,63 @@
     </div>
 </div>
 
+<!-- Email Activity Log -->
+<div style="margin-top: 1.5rem;">
+    <div class="card">
+        <div class="card-header">
+            <h3>&#128232; Email Activity Log</h3>
+            <span class="badge badge-sent">{{ email_logs|length }} total</span>
+        </div>
+        {% if email_logs %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Member</th>
+                        <th>Company</th>
+                        <th>Status</th>
+                        <th>Reason / Notes</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in email_logs %}
+                    <tr>
+                        <td><strong>{{ log.username }}</strong></td>
+                        <td>{{ log.company_name }}</td>
+                        <td>
+                            {% if log.status == 'sent' %}
+                            <span class="badge badge-sent">Sent</span>
+                            {% elif log.status == 'replied' %}
+                            <span class="badge badge-replied">Replied</span>
+                            {% elif log.status == 'no_response' %}
+                            <span class="badge badge-pending">No Response</span>
+                            {% elif log.status == 'not_sent' %}
+                            <span class="badge" style="background: rgba(252, 92, 101, 0.15); color: var(--danger);">Not Sent</span>
+                            {% elif log.status == 'bounced' %}
+                            <span class="badge" style="background: rgba(252, 92, 101, 0.15); color: var(--danger);">Bounced</span>
+                            {% elif log.status == 'rejected' %}
+                            <span class="badge" style="background: rgba(252, 92, 101, 0.15); color: var(--danger);">Rejected</span>
+                            {% else %}
+                            <span class="badge badge-pending">{{ log.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td style="color: var(--muted); font-size: 0.83rem;">{{ log.notes or '-' }}</td>
+                        <td style="color: var(--muted); font-size: 0.8rem;">{{ log.sent_at|datefmt }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="icon">&#128232;</div>
+            <p>No email activity yet. Members will log their email status here.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
