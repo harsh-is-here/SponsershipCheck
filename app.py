@@ -12,6 +12,17 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24).hex())
 
+@app.template_filter('datefmt')
+def datefmt_filter(value, fmt='%Y-%m-%d %H:%M'):
+    if value is None:
+        return '-'
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value)
+        except (ValueError, TypeError):
+            return value[:16] if len(value) > 16 else value
+    return value.strftime(fmt)
+
 DATABASE_URL = os.environ.get('DATABASE_URL')
 # Render uses postgres:// but psycopg2 needs postgresql://
 if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
@@ -460,7 +471,13 @@ def api_online_users():
     users = db_fetchall(db,
         "SELECT id, username, is_online, last_active FROM users WHERE role='member' ORDER BY is_online DESC"
     )
-    return jsonify([dict(u) for u in users])
+    result = []
+    for u in users:
+        d = dict(u)
+        if d.get('last_active') and not isinstance(d['last_active'], str):
+            d['last_active'] = d['last_active'].isoformat()
+        result.append(d)
+    return jsonify(result)
 
 
 @app.route('/api/stats')
