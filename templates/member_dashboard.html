@@ -113,76 +113,103 @@
     <div class="section-title">&#128188; My Assigned Companies</div>
 
     {% if assignments %}
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 1rem;">
+    <div class="card">
+        <div class="card-header">
+            <h3>Select a Company</h3>
+            <span class="badge badge-sent">{{ assignments|length }} assigned</span>
+        </div>
+
+        <!-- Company selector dropdown -->
+        <div class="form-group" style="margin-bottom: 1rem;">
+            <label>Choose Company</label>
+            <select id="company-selector" onchange="showCompany(this.value)" style="font-size: 0.95rem; padding: 0.55rem 0.8rem;">
+                <option value="">-- Select a company --</option>
+                {% for a in assignments %}
+                <option value="company-{{ a.id }}">
+                    {{ a.company_name }}
+                    {% if a.emails_sent > 0 %} ({{ a.emails_sent }} email{{ 's' if a.emails_sent > 1 else '' }}){% else %} (Pending){% endif %}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Company detail panels (hidden by default, shown on select) -->
         {% for a in assignments %}
-        <div class="card" style="position: relative;">
-            <!-- Status indicator -->
-            <div style="position: absolute; top: 1rem; right: 1rem;">
-                {% if a.emails_sent > 0 %}
-                <span class="badge badge-sent">{{ a.emails_sent }} email{{ 's' if a.emails_sent > 1 else '' }} logged</span>
-                {% else %}
-                <span class="badge badge-pending">No email sent</span>
-                {% endif %}
-            </div>
-
-            <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem; padding-right: 7rem;">{{ a.company_name }}</h3>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem 1rem; margin-bottom: 1rem; font-size: 0.83rem;">
-                <div>
-                    <span style="color: var(--muted);">Industry:</span>
-                    <span>{{ a.industry or 'N/A' }}</span>
-                </div>
-                <div>
-                    <span style="color: var(--muted);">Email:</span>
-                    <span>{{ a.company_email or 'N/A' }}</span>
-                </div>
-                <div>
-                    <span style="color: var(--muted);">Website:</span>
-                    <span>
-                        {% if a.website %}
-                        <a href="{{ a.website }}" target="_blank" rel="noopener" style="color: var(--accent);">{{ a.website[:30] }}{% if a.website|length > 30 %}...{% endif %}</a>
-                        {% else %}N/A{% endif %}
-                    </span>
-                </div>
-                <div>
-                    <span style="color: var(--muted);">Assigned:</span>
-                    <span>{{ a.assigned_at|datefmt('%Y-%m-%d') }}</span>
-                </div>
-                {% if a.last_email_at %}
-                <div>
-                    <span style="color: var(--muted);">Last email:</span>
-                    <span>{{ a.last_email_at|datefmt }}</span>
-                </div>
-                {% endif %}
-            </div>
-
-            <!-- Mark email sent form -->
+        <div class="company-panel" id="company-{{ a.id }}" style="display: none;">
             <div style="border-top: 1px solid var(--border); padding-top: 1rem;">
-                <form method="POST" action="{{ url_for('mark_email_sent', assignment_id=a.id) }}"
-                      style="display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap;">
-                    <div style="flex: 1; min-width: 140px;">
-                        <label style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">Status</label>
-                        <select name="status" style="padding: 0.45rem 0.7rem; font-size: 0.82rem;">
-                            <option value="sent">Email Sent</option>
-                            <option value="replied">Got Reply</option>
-                            <option value="no_response">No Response</option>
-                            <option value="not_sent">Not Sent</option>
-                            <option value="bounced">Bounced</option>
-                            <option value="rejected">Rejected</option>
-                        </select>
+                <!-- Company header -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+                    <h3 style="font-size: 1.1rem; margin: 0;">{{ a.company_name }}</h3>
+                    {% if a.emails_sent > 0 %}
+                    <span class="badge badge-sent">{{ a.emails_sent }} email{{ 's' if a.emails_sent > 1 else '' }} logged</span>
+                    {% else %}
+                    <span class="badge badge-pending">No email sent</span>
+                    {% endif %}
+                </div>
+
+                <!-- Company details grid -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem 1rem; margin-bottom: 1rem; font-size: 0.83rem;">
+                    <div>
+                        <span style="color: var(--muted);">Industry:</span>
+                        <span>{{ a.industry or 'N/A' }}</span>
                     </div>
-                    <div style="flex: 2; min-width: 150px;">
-                        <label style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">Reason / Notes</label>
-                        <input type="text" name="notes" placeholder="e.g. Invalid email, Followed up..."
-                               style="padding: 0.45rem 0.7rem; font-size: 0.82rem;">
+                    <div>
+                        <span style="color: var(--muted);">Email:</span>
+                        <span>{{ a.company_email or 'N/A' }}</span>
                     </div>
-                    <button type="submit" class="btn btn-success btn-sm" style="white-space: nowrap;">
-                        &#10003; Update Status
-                    </button>
-                </form>
+                    <div>
+                        <span style="color: var(--muted);">Website:</span>
+                        <span>
+                            {% if a.website %}
+                            <a href="{{ a.website }}" target="_blank" rel="noopener" style="color: var(--accent);">{{ a.website[:30] }}{% if a.website|length > 30 %}...{% endif %}</a>
+                            {% else %}N/A{% endif %}
+                        </span>
+                    </div>
+                    <div>
+                        <span style="color: var(--muted);">Assigned:</span>
+                        <span>{{ a.assigned_at|datefmt('%Y-%m-%d') }}</span>
+                    </div>
+                    {% if a.last_email_at %}
+                    <div>
+                        <span style="color: var(--muted);">Last email:</span>
+                        <span>{{ a.last_email_at|datefmt }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Update status form -->
+                <div style="border-top: 1px solid var(--border); padding-top: 1rem;">
+                    <form method="POST" action="{{ url_for('mark_email_sent', assignment_id=a.id) }}"
+                          style="display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 140px;">
+                            <label style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">Status</label>
+                            <select name="status" style="padding: 0.45rem 0.7rem; font-size: 0.82rem;">
+                                <option value="sent">Email Sent</option>
+                                <option value="replied">Got Reply</option>
+                                <option value="no_response">No Response</option>
+                                <option value="not_sent">Not Sent</option>
+                                <option value="bounced">Bounced</option>
+                                <option value="rejected">Rejected</option>
+                            </select>
+                        </div>
+                        <div style="flex: 2; min-width: 150px;">
+                            <label style="font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">Reason / Notes</label>
+                            <input type="text" name="notes" placeholder="e.g. Invalid email, Followed up..."
+                                   style="padding: 0.45rem 0.7rem; font-size: 0.82rem;">
+                        </div>
+                        <button type="submit" class="btn btn-success btn-sm" style="white-space: nowrap;">
+                            &#10003; Update Status
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
         {% endfor %}
+
+        <!-- Placeholder when nothing selected -->
+        <div id="company-placeholder" style="text-align: center; padding: 1.5rem 0; color: var(--muted); font-size: 0.9rem;">
+            &#9757; Select a company from the dropdown above to view details and update email status.
+        </div>
     </div>
     {% else %}
     <div class="card">
@@ -301,6 +328,17 @@
 
 {% block scripts %}
 <script>
+function showCompany(panelId) {
+    // Hide all panels
+    document.querySelectorAll('.company-panel').forEach(p => p.style.display = 'none');
+    var placeholder = document.getElementById('company-placeholder');
+    if (panelId) {
+        document.getElementById(panelId).style.display = 'block';
+        if (placeholder) placeholder.style.display = 'none';
+    } else {
+        if (placeholder) placeholder.style.display = 'block';
+    }
+}
 setInterval(() => {
     fetch('/api/stats').then(r => r.json());
 }, 30000);
