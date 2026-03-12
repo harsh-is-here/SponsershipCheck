@@ -65,12 +65,12 @@
             </div>
             <div>
                 <span style="color: var(--muted);">Assigned:</span>
-                <span>{{ a.assigned_at[:10] }}</span>
+                <span>{{ a.assigned_at.strftime('%Y-%m-%d') if a.assigned_at else '-' }}</span>
             </div>
             {% if a.last_email_at %}
             <div>
                 <span style="color: var(--muted);">Last email:</span>
-                <span>{{ a.last_email_at[:16] }}</span>
+                <span>{{ a.last_email_at.strftime('%Y-%m-%d %H:%M') if a.last_email_at else '-' }}</span>
             </div>
             {% endif %}
         </div>

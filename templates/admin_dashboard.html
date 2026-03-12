@@ -54,7 +54,7 @@
                             </td>
                             <td><strong>{{ m.username }}</strong></td>
                             <td style="color: var(--muted); font-size: 0.8rem;">
-                                {{ m.last_active[:16] if m.last_active else 'Never' }}
+                                {{ m.last_active.strftime('%Y-%m-%d %H:%M') if m.last_active else 'Never' }}
                             </td>
                         </tr>
                         {% endfor %}
@@ -210,7 +210,7 @@
                         <td>{{ a.company_name }}</td>
                         <td style="color: var(--muted);">{{ a.industry or '-' }}</td>
                         <td style="color: var(--muted);">{{ a.assigned_by_name }}</td>
-                        <td style="color: var(--muted); font-size: 0.8rem;">{{ a.assigned_at[:16] }}</td>
+                        <td style="color: var(--muted); font-size: 0.8rem;">{{ a.assigned_at.strftime('%Y-%m-%d %H:%M') if a.assigned_at else '-' }}</td>
                         <td>
                             {% if a.emails_sent > 0 %}
                             <span class="badge badge-sent">{{ a.emails_sent }} sent</span>
