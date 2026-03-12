@@ -371,11 +371,11 @@ def dashboard():
             ORDER BY d.uploaded_at DESC
         """)
         stats = {
-            'total_members': list(db_fetchone(db, "SELECT COUNT(*) as cnt FROM users WHERE role='member'").values())[0],
-            'online_members': list(db_fetchone(db, "SELECT COUNT(*) as cnt FROM users WHERE role='member' AND is_online=1").values())[0],
-            'total_companies': list(db_fetchone(db, "SELECT COUNT(*) as cnt FROM companies").values())[0],
-            'total_assignments': list(db_fetchone(db, "SELECT COUNT(*) as cnt FROM assignments").values())[0],
-            'total_emails_sent': list(db_fetchone(db, "SELECT COUNT(*) as cnt FROM email_logs").values())[0],
+            'total_members': db_fetchone(db, "SELECT COUNT(*) as cnt FROM users WHERE role='member'")['cnt'],
+            'online_members': db_fetchone(db, "SELECT COUNT(*) as cnt FROM users WHERE role='member' AND is_online=1")['cnt'],
+            'total_companies': db_fetchone(db, "SELECT COUNT(*) as cnt FROM companies")['cnt'],
+            'total_assignments': db_fetchone(db, "SELECT COUNT(*) as cnt FROM assignments")['cnt'],
+            'total_emails_sent': db_fetchone(db, "SELECT COUNT(*) as cnt FROM email_logs")['cnt'],
         }
         return render_template('admin_dashboard.html', members=members,
                                companies=companies, assignments=all_assignments,
@@ -415,9 +415,9 @@ def dashboard():
         """)
         stats = {
             'total_assigned': len(assignments),
-            'emails_sent': list(db_fetchone(db,
+            'emails_sent': db_fetchone(db,
                 "SELECT COUNT(*) as cnt FROM email_logs WHERE user_id=?", (user_id,)
-            ).values())[0],
+            )['cnt'],
             'pending': sum(1 for a in assignments if a['emails_sent'] == 0),
         }
         return render_template('member_dashboard.html', assignments=assignments,
@@ -635,15 +635,15 @@ def api_stats():
     db = get_db()
     if session['role'] == 'admin':
         return jsonify({
-            'online': list(db_fetchone(db, "SELECT COUNT(*) as cnt FROM users WHERE role='member' AND is_online=1").values())[0],
-            'total_emails': list(db_fetchone(db, "SELECT COUNT(*) as cnt FROM email_logs").values())[0],
-            'total_assignments': list(db_fetchone(db, "SELECT COUNT(*) as cnt FROM assignments").values())[0],
+            'online': db_fetchone(db, "SELECT COUNT(*) as cnt FROM users WHERE role='member' AND is_online=1")['cnt'],
+            'total_emails': db_fetchone(db, "SELECT COUNT(*) as cnt FROM email_logs")['cnt'],
+            'total_assignments': db_fetchone(db, "SELECT COUNT(*) as cnt FROM assignments")['cnt'],
         })
     else:
         uid = session['user_id']
         return jsonify({
-            'total_assigned': list(db_fetchone(db, "SELECT COUNT(*) as cnt FROM assignments WHERE user_id=?", (uid,)).values())[0],
-            'emails_sent': list(db_fetchone(db, "SELECT COUNT(*) as cnt FROM email_logs WHERE user_id=?", (uid,)).values())[0],
+            'total_assigned': db_fetchone(db, "SELECT COUNT(*) as cnt FROM assignments WHERE user_id=?", (uid,))['cnt'],
+            'emails_sent': db_fetchone(db, "SELECT COUNT(*) as cnt FROM email_logs WHERE user_id=?", (uid,))['cnt'],
         })
 
 
