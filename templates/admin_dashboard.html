@@ -242,7 +242,12 @@
     <div class="card">
         <div class="card-header">
             <h3>&#128232; Email Activity Log</h3>
-            <span class="badge badge-sent">{{ email_logs|length }} total</span>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <span class="badge badge-sent">{{ email_logs|length }} total</span>
+                <a href="{{ url_for('download_email_logs') }}" class="btn btn-primary btn-sm" style="margin-left: auto;">
+                    &#128233; Download as Excel
+                </a>
+            </div>
         </div>
         {% if email_logs %}
         <div class="table-wrap">

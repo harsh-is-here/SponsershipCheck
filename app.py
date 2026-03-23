@@ -4,12 +4,15 @@ import base64
 from datetime import datetime, timedelta
 from functools import wraps
 from urllib.parse import urlparse
+from io import BytesIO
 from flask import (
     Flask, render_template, request, redirect, url_for,
     session, flash, jsonify, g, send_file, Response
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24).hex())
@@ -609,6 +612,99 @@ def mark_email_sent(assignment_id):
     db.commit()
     flash('Email status updated!', 'success')
     return redirect(url_for('dashboard'))
+
+
+@app.route('/download-email-logs')
+@login_required
+def download_email_logs():
+    """Download email logs as Excel file."""
+    db = get_db()
+    
+    if session['role'] == 'admin':
+        # Admin downloads all email logs
+        email_logs = db_fetchall(db, """
+            SELECT el.id, el.status, el.sent_at, el.notes,
+                   u.username as member_name, c.name as company_name, c.email as company_email
+            FROM email_logs el
+            JOIN users u ON el.user_id = u.id
+            JOIN companies c ON el.company_id = c.id
+            ORDER BY el.sent_at DESC
+        """)
+        filename = f"email_logs_all_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        headers = ['ID', 'Member', 'Company', 'Company Email', 'Status', 'Sent At', 'Notes']
+    else:
+        # Member downloads only their email logs
+        email_logs = db_fetchall(db, """
+            SELECT el.id, el.status, el.sent_at, el.notes,
+                   c.name as company_name, c.email as company_email
+            FROM email_logs el
+            JOIN companies c ON el.company_id = c.id
+            WHERE el.user_id = ?
+            ORDER BY el.sent_at DESC
+        """, (session['user_id'],))
+        filename = f"my_email_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        headers = ['ID', 'Company', 'Company Email', 'Status', 'Sent At', 'Notes']
+    
+    # Create workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Email Logs"
+    
+    # Style header row
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    
+    # Add headers
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_num)
+        cell.value = header
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    
+    # Add data rows
+    for row_num, log in enumerate(email_logs, 2):
+        if session['role'] == 'admin':
+            row_data = [
+                log['id'],
+                log['member_name'],
+                log['company_name'],
+                log['company_email'],
+                log['status'],
+                log['sent_at'],
+                log['notes'] or ''
+            ]
+        else:
+            row_data = [
+                log['id'],
+                log['company_name'],
+                log['company_email'],
+                log['status'],
+                log['sent_at'],
+                log['notes'] or ''
+            ]
+        
+        for col_num, value in enumerate(row_data, 1):
+            cell = ws.cell(row=row_num, column=col_num)
+            cell.value = value
+            cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    
+    # Auto-adjust column widths
+    column_widths = [10, 20, 25, 25, 12, 20, 30] if session['role'] == 'admin' else [10, 25, 25, 12, 20, 30]
+    for col_num, width in enumerate(column_widths, 1):
+        ws.column_dimensions[chr(64 + col_num)].width = width
+    
+    # Save to BytesIO
+    excel_file = BytesIO()
+    wb.save(excel_file)
+    excel_file.seek(0)
+    
+    return send_file(
+        excel_file,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=filename
+    )
 
 
 # --------------- API endpoints for live updates ---------------
